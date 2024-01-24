@@ -1,0 +1,15 @@
+'socket.io':
+  - versions: "2.1.1 || 2.2.0 || 2.3.0 || 2.4.0 || ^2.5.0"
+    peerDependencies: socket.io-client@^2
+    commands:
+      - npm run test
+
+  - versions: "^3.1.2"
+    peerDependencies: socket.io-client@^3
+    commands:
+      - npm run test
+
+  - versions: "4.5.3 || 4.6.2 || ^4.7.1"
+    peerDependencies: socket.io-client@^4
+    commands:
+      - npm run test

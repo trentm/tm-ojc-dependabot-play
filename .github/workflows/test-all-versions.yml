@@ -1,0 +1,126 @@
+name: Test All Versions
+on:
+  schedule:
+    - cron: "30 4 * * *"
+  workflow_dispatch:
+    inputs:
+      npm-workspace-args:
+        type: string
+  workflow_call:
+    inputs:
+      npm-workspace-args:
+        required: true
+        type: string
+
+jobs:
+  tav:
+    name: Run test-all-versions
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["14", "16", "18.18.2"]
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo
+        ports:
+        - 27017:27017
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2017-latest
+        env:
+          SA_PASSWORD: mssql_passw0rd
+          ACCEPT_EULA: Y
+        ports:
+        - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools/bin/sqlcmd -U sa -P $SA_PASSWORD -Q 'select 1' -b -o /dev/null"
+          --health-interval 1s
+          --health-timeout 30s
+          --health-start-period 10s
+          --health-retries 20
+      mysql:
+        image: mysql:5.7
+        env:
+          MYSQL_USER: otel
+          MYSQL_PASSWORD: secret
+          MYSQL_DATABASE: otel_mysql_database
+          MYSQL_ROOT_PASSWORD: rootpw
+        ports:
+        - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: otel_pg_database
+          POSTGRES_PASSWORD: postgres
+        ports:
+        - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      rabbitmq:
+        image: rabbitmq:3
+        ports:
+        - 22221:5672
+        env:
+          RABBITMQ_DEFAULT_USER: username
+          RABBITMQ_DEFAULT_PASS: password
+      redis:
+        image: redis
+        ports:
+        - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      MONGODB_DB: opentelemetry-tests
+      MONGODB_HOST: 127.0.0.1
+      MONGODB_PORT: 27017
+      MSSQL_PASSWORD: mssql_passw0rd
+      MYSQL_DATABASE: otel_mysql_database
+      MYSQL_HOST: 127.0.0.1
+      MYSQL_PASSWORD: secret
+      MYSQL_ROOT_PASSWORD: rootpw
+      MYSQL_PORT: 3306
+      MYSQL_USER: otel
+      OPENTELEMETRY_REDIS_HOST: localhost
+      OPENTELEMETRY_REDIS_PORT: 6379
+      POSTGRES_DB: otel_pg_database
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      RUN_MONGODB_TESTS: 1
+      RUN_MSSQL_TESTS: 1
+      RUN_MYSQL_TESTS: 1
+      RUN_POSTGRES_TESTS: 1
+      RUN_REDIS_TESTS: 1
+      NPM_CONFIG_UNSAFE_PERM: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Set MySQL variables
+        run: mysql --user=root --password=${MYSQL_ROOT_PASSWORD} --host=${MYSQL_HOST} --port=${MYSQL_PORT} -e "SET GLOBAL log_output='TABLE'; SET GLOBAL general_log = 1;" mysql
+      - name: Update npm to a version that supports workspaces (v7 or later)
+        if: ${{ matrix.node < 16 }}
+        run: npm install -g npm@9 # npm@9 supports node >=14.17.0
+      - name: Install
+        run: npm ci
+      - name: Build
+        run: npm run compile
+      - name: Run test-all-versions
+        run: npm run --if-present --workspaces test-all-versions ${{ inputs.npm-workspace-args }}

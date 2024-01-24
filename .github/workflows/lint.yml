@@ -1,0 +1,27 @@
+name: Lint
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+
+      - name: Lint markdown files
+        uses: avto-dev/markdown-lint@v1
+        with:
+          ignore: "./**/CHANGELOG.md"
+          args: "./**/*.md"
+
+      - run: npm ci
+      - name: Lint
+        run: npm run lint
