@@ -1,7 +1,5 @@
 name: Test All Versions
 on:
-  schedule:
-    - cron: "30 4 * * *"
   workflow_dispatch:
     inputs:
       npm-workspace-args:
